@@ -1,13 +1,6 @@
 package me.qinchao;
 
-import static org.junit.Assert.*;
-
-import javax.swing.JEditorPane;
-import javax.swing.JFrame;
-import javax.swing.JScrollPane;
-import javax.swing.WindowConstants;
-
-import org.junit.Test;
+import javax.swing.*;
 
 public class Other {
 	private static String url="http://www.baidu.com";

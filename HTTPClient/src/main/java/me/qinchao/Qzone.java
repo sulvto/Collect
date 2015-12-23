@@ -1,36 +1,17 @@
 package me.qinchao;
 
-import java.io.IOException;
-import java.lang.reflect.Parameter;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import javax.script.ScriptEngineManager;
-
-import org.apache.http.Header;
+import com.alibaba.fastjson.JSON;
 import org.apache.http.HttpEntity;
-import org.apache.http.StatusLine;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.params.HttpParams;
 import org.apache.http.util.EntityUtils;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.select.Elements;
-import org.junit.Test;
 
-import com.alibaba.fastjson.JSON;
-import com.google.common.base.Joiner;
-import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Qzone {
 

@@ -1,19 +1,18 @@
 package me.qinchao;
 
-import java.util.ArrayList;
-import java.util.List;
-
+import com.alibaba.fastjson.JSONObject;
+import junit.framework.TestCase;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.junit.Test;
 
-import com.alibaba.fastjson.JSONObject;
+import java.util.ArrayList;
+import java.util.List;
 
-public class HttpClientUtilTest {
+public class HttpClientUtilTest extends TestCase{
 
-	@Test
+
 	public void testHttpClientUtil() {
 		final String baseUrl = "http://www.iteye.com/news";
 		final String html = HttpClientUtil.get(baseUrl);
@@ -39,7 +38,6 @@ public class HttpClientUtilTest {
 	}
 
 	
-	@Test
 	public void testQzone() {
 		final String html = HttpClientUtil.get("http://user.qzone.qq.com/592158826");
 		System.out.println(html);

@@ -1,7 +1,9 @@
 package me.qinchao.yunpan360;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,6 +16,7 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.cookie.Cookie;
 import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
@@ -23,6 +26,10 @@ import org.apache.http.util.EntityUtils;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.util.IOUtils;
+import com.google.common.base.Charsets;
+import com.google.common.base.Strings;
+import com.google.common.io.Files;
 
 public class Yunpan360Util {
 
@@ -31,7 +38,7 @@ public class Yunpan360Util {
 	private static final CloseableHttpClient httpClient = HttpClients.custom()
 			.setDefaultCookieStore(cookieStore)
 			//TODO
-			.setProxy(new HttpHost("27.115.75.114",8080))
+//			.setProxy(new HttpHost("27.115.75.114",8080))
 			.setMaxConnPerRoute(30000)
 			.setMaxConnTotal(30000)
 			.build();
@@ -40,6 +47,29 @@ public class Yunpan360Util {
 		login360("userName","password");
 		login360Yunpan();
 		yunpanList();
+		
+		StringBuilder stringBuilder = new StringBuilder();
+		
+List<Cookie> cookies = cookieStore.getCookies();
+
+
+
+		try {
+			//TODO
+			File file = new File("/home/qinchao/development/workspace/java/JavaTest/HTTPClient/temp/cookie");
+			file.mkdirs();
+			if(file .isFile()){
+				file .delete();
+			}
+			file.createNewFile();
+
+			Files.write(JSON.toJSONString(cookies),file,Charsets.UTF_8);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		
 	}
 
 	private static String getToken(String userName) {
