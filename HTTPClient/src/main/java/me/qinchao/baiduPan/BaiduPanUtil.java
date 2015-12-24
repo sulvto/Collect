@@ -8,16 +8,21 @@ import com.google.common.base.Strings;
 import com.google.common.io.Files;
 import junit.framework.Assert;
 import org.apache.commons.codec.binary.StringUtils;
+import org.apache.commons.codec.net.URLCodec;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.CookieStore;
+import org.apache.http.client.entity.EntityBuilder;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.utils.URLEncodedUtils;
 import org.apache.http.cookie.Cookie;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.FileEntity;
 import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
@@ -36,6 +41,8 @@ import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 import java.io.*;
+import java.net.URLEncoder;
+import java.nio.file.*;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -57,14 +64,18 @@ public class BaiduPanUtil {
 
         readCookiesToStore();
 //        login("", "");
-        getPanHomeHtmlSource();
-        JSONObject loginInfo = parsePanHome(BaiduPanUtil.getPanHomeHtmlSource());
+//        getPanHomeHtmlSource();
+//        JSONObject loginInfo = parsePanHome(BaiduPanUtil.getPanHomeHtmlSource());
+//        System.out.println(JSON.toJSONString(loginInfo, true));
+//        String pluginUploadUrl = (String) loginInfo.get("pluginUploadUrl");
 
+//        JSONObject fileList = BaiduPanUtil.apiList("/test", (String) loginInfo.get("bdstoken"));
+//        System.out.println(JSON.toJSONString(fileList, true));
+//        JSONObject precreate = apiPrecreate("/test/intellij idea15 破解.txt", (String) loginInfo.get("bdstoken"));
+//        System.out.println(precreate.toJSONString());
+
+        uploadFile("/home/qinchao/development/workspace/java/JavaTest/HTTPClient/target/classes/temp/cookies.txt", "/test/cookies.txt");
 //        writeCookiesToFile();
-        JSONObject fileList = BaiduPanUtil.apiList("/源代码", (String) loginInfo.get("bdstoken"));
-
-        System.out.println(JSON.toJSONString(fileList, true));
-
     }
 
     private static void writeCookiesToFile() {
@@ -113,8 +124,6 @@ public class BaiduPanUtil {
                             basicClientCookie.setVersion((Integer) jsonObject.get("version"));
                         if (jsonObject.containsKey("expiryDate"))
                             basicClientCookie.setExpiryDate(new Date((Long) jsonObject.get("expiryDate")));
-                        if (jsonObject.containsKey("creationDate"))
-                            basicClientCookie.setCreationDate(new Date((Long) jsonObject.get("creationDate")));
                         if (jsonObject.containsKey("secure"))
                             basicClientCookie.setSecure((Boolean) jsonObject.get("secure"));
 
@@ -321,12 +330,7 @@ public class BaiduPanUtil {
 
         HttpPost httpPost = new HttpPost(
                 "https://passport.baidu.com/v2/api/?login");
-        try {
-            httpPost.setEntity(new UrlEncodedFormEntity(nvps, HTTP.UTF_8));
-        } catch (UnsupportedEncodingException e1) {
-            // TODO Auto-generated catch block
-            e1.printStackTrace();
-        }
+            httpPost.setEntity(new UrlEncodedFormEntity(nvps, Charsets.UTF_8));
 
         httpPost.addHeader("Accept",
                 "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
@@ -455,14 +459,17 @@ public class BaiduPanUtil {
     }
 
     /**
-     * HttpGet <a href='http://pan.baidu.com/api/list'>http://pan.baidu.com/api/list </a><br/>
-     * 获取指定目录下的文件信息
+     * HttpGet <a href='http://pan.baidu.com/api/precreate'>http://pan.baidu.com/api/precreate</a><br/>
+     * <p>
+     * 上传文件前<br/>
+     * <p>
      * 必须存在登录<a href=‘baidu.com’>baidu.com</a>后的cookie
      *
-     * @return JSONObject
+     * @param path     "/cookies.txt"
+     * @param bdstoken
+     * @return JSONObject {"path":"\/cookies.txt","uploadid":"N1-MTAzLjI0LjE4NS4yNTI6MTQ1MDkzNjE1Mjo4MjkzMTkzNDA5OTUwNDk0ODUx","return_type":1,"block_list":[],"errno":0,"request_id":8293193409950494851}
      */
-    public static JSONObject apiPrecreate(String dir, String bdstoken) {
-        //TODO page num ...
+    public static JSONObject apiPrecreate(String path, String bdstoken,String block) {
         String url = "http://pan.baidu.com/api/precreate?bdstoken=" + bdstoken + "&channel=chunlei&clienttype=0&web=1&app_id=250528";
         HttpPost httpPost = new HttpPost(url);
 
@@ -481,23 +488,17 @@ public class BaiduPanUtil {
 
         List<NameValuePair> nvps = new ArrayList<NameValuePair>();
         nvps.add(new BasicNameValuePair("apiver", "v3"));
-        nvps.add(new BasicNameValuePair("path", "/cookies.txt"));
+        nvps.add(new BasicNameValuePair("path", path));
         nvps.add(new BasicNameValuePair("autoinit", "1"));
         //block_list在 http://s1.pan.bdstatic.com/box-static/disk-system-cdn/pkg/plugin-upload_b52213f.js 文件中  search==> o='[
-        nvps.add(new BasicNameValuePair("block_list", "[\"5910a591dd8fc18c32a8f3df4fdc1761\"]"));
+        //TODO [5910a591dd8fc18c32a8f3df4fdc1761, a5fc157d78e6ad1c7e114b056c92821e]
+        nvps.add(new BasicNameValuePair("block_list", "[\""+block+"\"]"));
 
-        try {
-            httpPost.setEntity(new UrlEncodedFormEntity(nvps, HTTP.UTF_8));
-        } catch (UnsupportedEncodingException e1) {
-            // TODO Auto-generated catch block
-            e1.printStackTrace();
-        }
+            httpPost.setEntity(new UrlEncodedFormEntity(nvps, Charsets.UTF_8));
         try {
             HttpResponse response = httpClient.execute(httpPost);
             HttpEntity entity = response.getEntity();
             String entityString = EntityUtils.toString(entity, Charsets.UTF_8);
-//            JSONString
-            System.out.println(entityString);
             return JSON.parseObject(entityString);
         } catch (IOException e) {
             e.printStackTrace();
@@ -506,11 +507,154 @@ public class BaiduPanUtil {
     }
 
     /**
-     * get cookie value by name if isPresent
-     *
-     * @param name
-     * @return
+     * HttpPost <a href='http://c2.pcs.baidu.com/rest/2.0/pcs/superfile2'>http://c2.pcs.baidu.com/rest/2.0/pcs/superfile2</a><br/>
+     * <p>
+     * 上传文件<br/>
+     * @param filePath 要上传的文件路径
+     * @param path     百度网盘存放路径 "/cookies.txt"
+     * @param bduss
+     * @param uploadid {@linkplain BaiduPanUtil.apiPrecreate()}
+     * @return JSONObject {"md5":"f6c93536500fa6b4f62a70a8475df509","request_id":8303065634367135628}
      */
+    public static JSONObject upload(String filePath, String path, String bduss, String uploadid) {
+        File file = new File(filePath);
+        if (!file.exists()) {
+            throw new IllegalArgumentException("file ==> " + filePath + "   文件不存在");
+        }
+
+
+        return upload(file,path,bduss,uploadid);
+    }
+
+    public static JSONObject upload(File file, String path, String bduss, String uploadid) {
+        System.out.println(path);
+//        try {
+//            path = URLEncoder.encode(path, Charsets.UTF_8.toString());
+//            System.out.println(path);
+//        } catch (UnsupportedEncodingException e) {
+//            throw new IllegalArgumentException(e);
+//        }
+        String url = "http://c2.pcs.baidu.com/rest/2.0/pcs/superfile2?method=upload&app_id=250528&BDUSS=" + bduss + "&path=" + path + "&uploadid=" + uploadid + "&partseq=0";
+        HttpPost httpPost = new HttpPost(url);
+
+        httpPost.addHeader("Origin", "http://pan.baidu.com");
+        httpPost.addHeader("Host", "pan.baidu.com");
+        httpPost.addHeader("Connection", "keep-alive");
+        httpPost.addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+        httpPost.addHeader("Referer", "http://pan.baidu.com/disk/home");
+        httpPost.addHeader("Accept-Encoding", "gzip, deflate");
+        httpPost.addHeader("Accept-Language", "zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3");
+        httpPost.addHeader("Content-Type", "multipart/form-data; boundary=----WebKitFormBoundaryFesvivcPucIfnqBW");
+        httpPost.addHeader(User_Agent);
+
+//        MultipartEntityBuilder
+        HttpEntity httpEntity = null;
+//        try {
+            httpEntity = EntityBuilder.create()
+                    .setContentType(ContentType.create("binary/octet-stream"))
+//                    .setBinary(Files.toByteArray(file))
+//                    .setStream(new FileInputStream(file))
+                    .setParameters(new BasicNameValuePair("Content-Disposition","form-data; name=\"file\"; filename=\"blob\""))
+                    .setContentEncoding(Charsets.UTF_8.toString())
+                    .setFile(file)
+                    .build();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+System.out.println(JSON.toJSONString(httpEntity,true));
+//        FileEntity fileEntity = new FileEntity(file,ContentType.create("binary/octet-stream"));
+
+
+        httpPost.setEntity(httpEntity);
+
+
+        try {
+            HttpResponse response = httpClient.execute(httpPost);
+            HttpEntity entity = response.getEntity();
+            String entityString = EntityUtils.toString(entity, Charsets.UTF_8);
+            System.out.println(entityString);
+            return JSON.parseObject(entityString);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+    /**
+     * HttpPost <a href='http://pan.baidu.com/api/create'>http://pan.baidu.com/api/create</a><br/>
+     * <p>
+     * 创建文件<br/>
+     * @param path     百度网盘存放路径 "/cookies.txt"
+     * @param bdstoken
+     * @param uploadid {@linkplain BaiduPanUtil.apiPrecreate()}
+     * @param size create file size
+     * @return JSONObject {"md5":"f6c93536500fa6b4f62a70a8475df509","request_id":8303065634367135628}
+     */
+    public static JSONObject createFile(String path, String bdstoken, String uploadid,String block,Long size) {
+
+        String url = "http://pan.baidu.com/api/create?isdir=0&rtype=1&bdstoken="+bdstoken+"&channel=chunlei&clienttype=0&web=1&app_id=250528";
+        HttpPost httpPost = new HttpPost(url);
+
+        httpPost.addHeader("Origin", "http://pan.baidu.com");
+        httpPost.addHeader("Host", "pan.baidu.com");
+        httpPost.addHeader("Connection", "keep-alive");
+        httpPost.addHeader("Accept", "*/*");
+        httpPost.addHeader("X-Requested-With", "XMLHttpRequest");
+        httpPost.addHeader("Referer", "http://pan.baidu.com/disk/home");
+        httpPost.addHeader("Accept-Language", "zh-CN,zh;q=0.8");
+        httpPost.addHeader(User_Agent);
+        Header cookie = cookie2Header();
+        Assert.assertNotNull("cookie is null", cookie);
+        httpPost.addHeader(cookie);
+
+        List<NameValuePair> nvps = new ArrayList<NameValuePair>();
+        nvps.add(new BasicNameValuePair("uploadid", uploadid));
+        nvps.add(new BasicNameValuePair("path", path));
+        nvps.add(new BasicNameValuePair("size", size+""));
+        //block_list在 http://s1.pan.bdstatic.com/box-static/disk-system-cdn/pkg/plugin-upload_b52213f.js 文件中  search==> o='[
+        //TODO [5910a591dd8fc18c32a8f3df4fdc1761, a5fc157d78e6ad1c7e114b056c92821e]
+        nvps.add(new BasicNameValuePair("block_list", "[\""+block+"\"]"));
+
+        httpPost.setEntity(new UrlEncodedFormEntity(nvps, Charsets.UTF_8));
+        try {
+            HttpResponse response = httpClient.execute(httpPost);
+            HttpEntity entity = response.getEntity();
+            String entityString = EntityUtils.toString(entity, Charsets.UTF_8);
+            return JSON.parseObject(entityString);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+
+
+    public static JSONObject uploadFile(String filePath, String path) {
+        JSONObject loginInfo = parsePanHome(BaiduPanUtil.getPanHomeHtmlSource());
+        List<String> blockList = parseBlockList((String) loginInfo.get("pluginUploadUrl"));
+        String bdstoken = (String) loginInfo.get("bdstoken");
+        JSONObject precreate = apiPrecreate(path, bdstoken,blockList.get(0));
+        System.out.println(precreate.toJSONString());
+        String xduss = (String) loginInfo.get("XDUSS"); //or bduss
+        String uploadid= (String)precreate.get("uploadid");
+        File file = new File(filePath);
+
+        if (!file.exists()) {
+            throw new IllegalArgumentException("file ==> " + filePath + "   文件不存在");
+        }
+        JSONObject upload = upload(file, path, xduss, uploadid);
+//        upload = upload(file, path, xduss, uploadid);
+        System.out.println(upload.toJSONString());
+        JSONObject jsonObject = createFile(path, bdstoken, uploadid, blockList.get(0),file.length());
+        System.out.println(jsonObject.toJSONString());
+        return null;
+    }
+
+        /**
+         * get cookie value by name if isPresent
+         *
+         * @param name
+         * @return
+         */
     private String getCookie(String name) {
         if (Strings.isNullOrEmpty(name)) {
             throw new IllegalArgumentException();
@@ -545,11 +689,10 @@ public class BaiduPanUtil {
     public static JSONObject parsePanHome(String htmlSource) {
         String jsonString = htmlSource.replaceFirst("[\\w|\\W]+yunData.setData\\(\\{", "{").replaceFirst("}\\);[\\w|\\W]+", "}").trim();
         String plugin_upload_url = htmlSource.replaceFirst("[\\w|\\W]+\"disk-system:p5\":\\{\"url\":\"", "").replaceFirst("\\.js\"}[\\w|\\W]+", ".js").trim();
-        System.out.println(plugin_upload_url);
-
-        System.out.println(jsonString);
+        System.out.println("plugin_upload_url :: " + plugin_upload_url);
 
         JSONObject jsonObject = JSON.parseObject(jsonString);
+
         if (plugin_upload_url.length() > 0)
             jsonObject.put("pluginUploadUrl", plugin_upload_url);
 
@@ -558,4 +701,22 @@ public class BaiduPanUtil {
     }
 
 
+    /**
+     * old http://s1.pan.bdstatic.com/box-static/disk-system-cdn/pkg/plugin-upload_b52213f.js
+     *
+     * @param url
+     */
+    public static List<String> parseBlockList(String url) {
+        HttpGet httpGet = new HttpGet(url);
+        CloseableHttpResponse httpResponse = null;
+        try {
+            httpResponse = httpClient.execute(httpGet);
+            String entity = EntityUtils.toString(httpResponse.getEntity());
+            String array = entity.replaceFirst("^[\\W|\\w]+o='\\[", "[").replaceFirst("]';[\\W|\\w]+", "]");
+            return JSON.parseArray(array, String.class);
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new UncheckedIOException(e);
+        }
+    }
 }
