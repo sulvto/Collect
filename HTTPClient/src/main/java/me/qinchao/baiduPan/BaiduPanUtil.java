@@ -7,50 +7,38 @@ import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
 import com.google.common.io.Files;
 import junit.framework.Assert;
-import org.apache.commons.codec.binary.StringUtils;
-import org.apache.commons.codec.net.URLCodec;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.CookieStore;
-import org.apache.http.client.entity.EntityBuilder;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.utils.URLEncodedUtils;
+import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.cookie.Cookie;
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.FileEntity;
 import org.apache.http.entity.mime.FormBodyPart;
 import org.apache.http.entity.mime.FormBodyPartBuilder;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.entity.mime.content.FileBody;
-import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.cookie.BasicClientCookie;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.protocol.HTTP;
-import org.apache.http.util.Asserts;
 import org.apache.http.util.EntityUtils;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
 import org.slf4j.LoggerFactory;
 
 import javax.script.Invocable;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
-import java.io.*;
-import java.net.URLEncoder;
-import java.nio.file.*;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.*;
-import java.util.logging.Logger;
 
 public class BaiduPanUtil {
     final static org.slf4j.Logger logger = LoggerFactory.getLogger(BaiduPanUtil.class);
@@ -66,13 +54,16 @@ public class BaiduPanUtil {
             .getResource("/").getPath()
             + File.separator + "temp";
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
 
-        readCookiesToStore();
-//        login("", "");
+//        readCookiesToStore();
+        login("", "");
 
-        uploadFile("/home/xxx/下载/node-v4.2.3/android-configure", "/test/android-configure.txt");
-//        writeCookiesToFile();
+//        uploadFile("/home/xxx/下载/node-v4.2.3/android-configure", "/test/android-configure.txt");
+
+        String dlink = getDlink("831325154488496");
+        System.out.println(dlink);
+        writeCookiesToFile();
     }
 
     private static void writeCookiesToFile() {
@@ -175,22 +166,18 @@ public class BaiduPanUtil {
         return null;
     }
 
-    public static String getBAIDUID() {
+    public static String getBAIDUID() throws IOException {
 
         String url = "http://pan.baidu.com/#list/path=%2F";
         HttpGet httpPost = new HttpGet(url);
-
-        try {
-            httpClient.execute(httpPost);
-            List<Cookie> cookies = cookieStore.getCookies();
-            Optional<Cookie> findFirst = cookies.stream()
-                    .filter(v -> {
-                        return "BAIDUID".equals(v.getName());
-                    }).findFirst();
-            return findFirst.isPresent() ? findFirst.get().getValue() : "";
-        } catch (IOException e) {
-        }
-        return "";
+        clientExecute(httpPost);
+        httpClient.execute(httpPost);
+        List<Cookie> cookies = cookieStore.getCookies();
+        Optional<Cookie> findFirst = cookies.stream()
+                .filter(v -> {
+                    return "BAIDUID".equals(v.getName());
+                }).findFirst();
+        return findFirst.isPresent() ? findFirst.get().getValue() : "";
     }
 
     /**
@@ -198,7 +185,7 @@ public class BaiduPanUtil {
      * @param gid
      * @return Map <String,String>
      */
-    public static Map getPublicKey(String token, String gid) {
+    public static Map getPublicKey(String token, String gid) throws IOException {
         Assert.assertFalse(Strings.isNullOrEmpty(token));
         Assert.assertFalse(Strings.isNullOrEmpty(gid));
         String url = "https://passport.baidu.com/v2/getpublickey?token="
@@ -206,22 +193,15 @@ public class BaiduPanUtil {
                 + "&gid=" + gid + "&callback=bd__cbs__k9cuw0";
         HttpGet httpPost = new HttpGet(url);
 
-        try {
-            HttpResponse response = httpClient.execute(httpPost);
-            HttpEntity entity = response.getEntity();
-            String entityString = EntityUtils.toString(entity);
-            // to json and replace(',")
-            String jsonObject = entityString.replaceFirst(".*\\(", "")
-                    .replaceFirst("\\)$", "").replaceAll("\":'", "\":\"")
-                    .replaceAll("',\"", "\",\"").replaceAll("'}", "\"}")
-                    .replaceAll("']", "\"]");
-            System.out.println("getPublicKey ==>  " + jsonObject);
-            JSONObject parseObject = JSON.parseObject(jsonObject);
-            return parseObject.containsKey("key") ? parseObject : null;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
+        String entityString = clientExecute(httpPost);
+        // to json and replace(',")
+        String jsonObject = entityString.replaceFirst(".*\\(", "")
+                .replaceFirst("\\)$", "").replaceAll("\":'", "\":\"")
+                .replaceAll("',\"", "\",\"").replaceAll("'}", "\"}")
+                .replaceAll("']", "\"]");
+        System.out.println("getPublicKey ==>  " + jsonObject);
+        JSONObject parseObject = JSON.parseObject(jsonObject);
+        return parseObject.containsKey("key") ? parseObject : null;
     }
 
     /**
@@ -230,7 +210,7 @@ public class BaiduPanUtil {
      * @param baiduid {@see getBAIDUID()}
      * @param gid     {@see guideRandom()}
      */
-    public static String getToken(String baiduid, String gid) {
+    public static String getToken(String baiduid, String gid) throws IOException {
         Assert.assertFalse(Strings.isNullOrEmpty(baiduid));
         Assert.assertFalse(Strings.isNullOrEmpty(gid));
         String url = "https://passport.baidu.com/v2/api/?getapi&tpl=mn&apiver=v3&tt=1450621860252&class=login&gid="
@@ -239,37 +219,32 @@ public class BaiduPanUtil {
         httpPost.addHeader("Cookie", "BAIDUID=" + baiduid + ";");
 
         String token = "";
-        try {
-            HttpResponse response = httpClient.execute(httpPost);
-            HttpEntity entity = response.getEntity();
-            // bd__cbs__p676ul({"errInfo":{ "no": "0" }, "data": {
-            // "rememberedUserName" : "", "codeString" : "", "token" :
-            // "the fisrt two args should be string type:0,1!", "cookie" : "0",
-            // "usernametype":"", "spLogin" : "rate", "disable":"",
-            // "loginrecord":{ 'email':[ ], 'phone':[ ] } }})
-            String entityString = EntityUtils.toString(entity);
 
-            String jsonString = entityString.replaceFirst(".*\\(\\{", "{")
-                    .replaceFirst("\\)$", "");
-            JSONObject jsonObject = JSON.parseObject(jsonString);
-            if (jsonObject.containsKey("data")) {
-                JSONObject dataObject = (JSONObject) jsonObject.get("data");
-                if (dataObject.containsKey("token")) {
-                    token = (String) dataObject.get("token");
-                    System.out.println("getToken ==>  " + token);
-                } else {
-                    System.err.println("no token");
-                }
+        String entityString = clientExecute(httpPost);
+        // bd__cbs__p676ul({"errInfo":{ "no": "0" }, "data": {
+        // "rememberedUserName" : "", "codeString" : "", "token" :
+        // "the fisrt two args should be string type:0,1!", "cookie" : "0",
+        // "usernametype":"", "spLogin" : "rate", "disable":"",
+        // "loginrecord":{ 'email':[ ], 'phone':[ ] } }})
+
+        String jsonString = entityString.replaceFirst(".*\\(\\{", "{")
+                .replaceFirst("\\)$", "");
+        JSONObject jsonObject = JSON.parseObject(jsonString);
+        if (jsonObject.containsKey("data")) {
+            JSONObject dataObject = (JSONObject) jsonObject.get("data");
+            if (dataObject.containsKey("token")) {
+                token = (String) dataObject.get("token");
+                System.out.println("getToken ==>  " + token);
             } else {
-                System.err.println("no data");
+                System.err.println("no token");
             }
-        } catch (IOException e) {
-            e.printStackTrace();
+        } else {
+            System.err.println("no data");
         }
         return token;
     }
 
-    public static void login(String username, String password) {
+    public static void login(String username, String password) throws IOException {
 
         String gid = guideRandom();
         long nowTime = new Date().getTime();
@@ -338,31 +313,24 @@ public class BaiduPanUtil {
         httpPost.addHeader("Referer", "https://www.baidu.com/");
 //		httpPost.addHeader("Cookie", "BAIDUID=" + baiduid+";");
         httpPost.addHeader(User_Agent);
-        String entityString = null;
-        try {
-            CloseableHttpResponse execute = httpClient.execute(httpPost);
-            final HttpEntity entity = execute.getEntity();
-            entityString = EntityUtils.toString(entity, "UTF-8");
 
-            if (entityString.indexOf("err_no=0") != -1) {
-                System.out.println("login success ");
-            } else {
-                System.out.println(entityString);
-            }
-            // err_no=257 验证码
-            // err_no=4 密码错误
+        String entityString = clientExecute(httpPost);
 
-            System.out.println("cookie size  :: "
-                    + cookieStore.getCookies().size());
-            cookieStore.getCookies().forEach(
-                    cookie -> {
-                        System.out.println(cookie.getName() + " -- "
-                                + cookie.getValue());
-                    });
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+        if (entityString.indexOf("err_no=0") != -1) {
+            System.out.println("login success ");
+        } else {
+            System.out.println(entityString);
         }
+        // err_no=257 验证码
+        // err_no=4 密码错误
+
+        System.out.println("cookie size  :: "
+                + cookieStore.getCookies().size());
+        cookieStore.getCookies().forEach(
+                cookie -> {
+                    System.out.println(cookie.getName() + " -- "
+                            + cookie.getValue());
+                });
     }
 
     /**
@@ -370,28 +338,20 @@ public class BaiduPanUtil {
      * @param gid
      * @return Map <String,String>
      */
-    public static Map panList(String token, String gid) {
+    public static Map panList(String token, String gid) throws IOException {
         Assert.assertFalse(Strings.isNullOrEmpty(token));
         Assert.assertFalse(Strings.isNullOrEmpty(gid));
         String url = "//https://pan.baidu.com/api/list?order=name&desc=0&showempty=0&web=1&page=1&num=100&dir=%2F&t=0.7630364120973585&bdstoken=56b52250de0b27b349d2481d154dac3f&channel=chunlei&clienttype=0&web=1&app_id=250528";
         HttpGet httpPost = new HttpGet(url);
-
-        try {
-            HttpResponse response = httpClient.execute(httpPost);
-            HttpEntity entity = response.getEntity();
-            String entityString = EntityUtils.toString(entity);
-            // to json and replace(',")
-            String jsonObject = entityString.replaceFirst(".*\\(", "")
-                    .replaceFirst("\\)$", "").replaceAll("\":'", "\":\"")
-                    .replaceAll("',\"", "\",\"").replaceAll("'}", "\"}")
-                    .replaceAll("']", "\"]");
-            System.out.println("getPublicKey ==>  " + jsonObject);
-            JSONObject parseObject = JSON.parseObject(jsonObject);
-            return parseObject.containsKey("key") ? parseObject : null;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
+        String entityString = clientExecute(httpPost);
+        // to json and replace(',")
+        String jsonObject = entityString.replaceFirst(".*\\(", "")
+                .replaceFirst("\\)$", "").replaceAll("\":'", "\":\"")
+                .replaceAll("',\"", "\",\"").replaceAll("'}", "\"}")
+                .replaceAll("']", "\"]");
+        System.out.println("getPublicKey ==>  " + jsonObject);
+        JSONObject parseObject = JSON.parseObject(jsonObject);
+        return parseObject.containsKey("key") ? parseObject : null;
     }
 
 
@@ -400,7 +360,7 @@ public class BaiduPanUtil {
      *
      * @return Charset UTF_8 Html Source
      */
-    public static String getPanHomeHtmlSource() {
+    public static String getPanHomeHtmlSource() throws IOException {
         String url = "http://pan.baidu.com/disk/home";
         HttpGet httpGet = new HttpGet(url);
         httpGet.addHeader(User_Agent);
@@ -408,14 +368,8 @@ public class BaiduPanUtil {
         Assert.assertNotNull("cookie is null", cookie);
         httpGet.addHeader(cookie);
 
-        try {
-            HttpResponse response = httpClient.execute(httpGet);
-            HttpEntity entity = response.getEntity();
-            return EntityUtils.toString(entity, Charsets.UTF_8);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
+        return clientExecute(httpGet);
+
     }
 
     /**
@@ -425,7 +379,7 @@ public class BaiduPanUtil {
      *
      * @return JSONObject
      */
-    public static JSONObject apiList(String dir, String bdstoken) {
+    public static JSONObject apiList(String dir, String bdstoken) throws IOException {
         //TODO page num ...
         String url = "http://pan.baidu.com/api/list?order=name&desc=1&showempty=0&web=1&page=1&num=100&dir=" + dir + "&t=0.19144635694101453&bdstoken=" + bdstoken + "&channel=chunlei&clienttype=0&web=1";
         HttpGet httpGet = new HttpGet(url);
@@ -442,17 +396,8 @@ public class BaiduPanUtil {
         Assert.assertNotNull("cookie is null", cookie);
         httpGet.addHeader(cookie);
 
-        try {
-            HttpResponse response = httpClient.execute(httpGet);
-            HttpEntity entity = response.getEntity();
-            String entityString = EntityUtils.toString(entity, Charsets.UTF_8);
-//            JSONString
-            System.out.println(entityString);
-            return JSON.parseObject(entityString);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
+        String entityString = clientExecute(httpGet);
+        return JSON.parseObject(entityString);
     }
 
     /**
@@ -466,7 +411,7 @@ public class BaiduPanUtil {
      * @param bdstoken
      * @return JSONObject {"path":"\/cookies.txt","uploadid":"N1-MTAzLjI0LjE4NS4yNTI6MTQ1MDkzNjE1Mjo4MjkzMTkzNDA5OTUwNDk0ODUx","return_type":1,"block_list":[],"errno":0,"request_id":8293193409950494851}
      */
-    public static JSONObject apiPrecreate(String path, String bdstoken, String block) {
+    public static JSONObject apiPrecreate(String path, String bdstoken, String block) throws IOException {
         String url = "http://pan.baidu.com/api/precreate?bdstoken=" + bdstoken + "&channel=chunlei&clienttype=0&web=1&app_id=250528";
         HttpPost httpPost = new HttpPost(url);
 
@@ -492,15 +437,9 @@ public class BaiduPanUtil {
         nvps.add(new BasicNameValuePair("block_list", "[\"" + block + "\"]"));
 
         httpPost.setEntity(new UrlEncodedFormEntity(nvps, Charsets.UTF_8));
-        try {
-            HttpResponse response = httpClient.execute(httpPost);
-            HttpEntity entity = response.getEntity();
-            String entityString = EntityUtils.toString(entity, Charsets.UTF_8);
-            return JSON.parseObject(entityString);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
+        String entityString = clientExecute(httpPost);
+
+        return JSON.parseObject(entityString);
     }
 
     /**
@@ -514,7 +453,7 @@ public class BaiduPanUtil {
      * @param uploadid {@linkplain BaiduPanUtil#apiPrecreate(String, String, String)}
      * @return JSONObject {"md5":"f6c93536500fa6b4f62a70a8475df509","request_id":8303065634367135628}
      */
-    public static JSONObject upload(String filePath, String path, String bduss, String uploadid) {
+    public static JSONObject upload(String filePath, String path, String bduss, String uploadid) throws IOException {
         File file = new File(filePath);
         if (!file.exists()) {
             throw new IllegalArgumentException("file ==> " + filePath + "   文件不存在");
@@ -524,7 +463,7 @@ public class BaiduPanUtil {
         return upload(file, path, bduss, uploadid);
     }
 
-    public static JSONObject upload(File file, String path, String bduss, String uploadid) {
+    public static JSONObject upload(File file, String path, String bduss, String uploadid) throws IOException {
         System.out.println(path);
 //        try {
 //            path = URLEncoder.encode(path, Charsets.UTF_8.toString());
@@ -557,15 +496,8 @@ public class BaiduPanUtil {
                 .build();
         httpPost.setEntity(httpEntity);
 
-        try {
-            HttpResponse response = httpClient.execute(httpPost);
-            HttpEntity entity = response.getEntity();
-            String entityString = EntityUtils.toString(entity, Charsets.UTF_8);
-            return JSON.parseObject(entityString);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
+        String entityString = clientExecute(httpPost);
+        return JSON.parseObject(entityString);
     }
 
     /**
@@ -580,7 +512,7 @@ public class BaiduPanUtil {
      * @param size     create file size
      * @return JSONObject {"path":"/test/cookies(2).txt","errno":0,"size":2837,"server_filename":"cookies(2).txt","name":"/test/cookies(2).txt","ctime":1451058390,"category":4,"mtime":1451058390,"fs_id":831325154488496,"isdir":0,"md5":"612bc2a142e9d5a050dec5b6df915ab4"}
      */
-    public static JSONObject createFile(String path, String bdstoken, String uploadid, String md5, Long size) {
+    public static JSONObject createFile(String path, String bdstoken, String uploadid, String md5, Long size) throws IOException {
 
         String url = "http://pan.baidu.com/api/create?isdir=0&rtype=1&bdstoken=" + bdstoken + "&channel=chunlei&clienttype=0&web=1&app_id=250528";
         HttpPost httpPost = new HttpPost(url);
@@ -605,19 +537,13 @@ public class BaiduPanUtil {
         nvps.add(new BasicNameValuePair("block_list", "[\"" + md5 + "\"]"));
 
         httpPost.setEntity(new UrlEncodedFormEntity(nvps, Charsets.UTF_8));
-        try {
-            HttpResponse response = httpClient.execute(httpPost);
-            HttpEntity entity = response.getEntity();
-            String entityString = EntityUtils.toString(entity, Charsets.UTF_8);
-            return JSON.parseObject(entityString);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
+        String entityString = clientExecute(httpPost);
+        ;
+        return JSON.parseObject(entityString);
     }
 
 
-    public static JSONObject uploadFile(String from, String to) {
+    public static JSONObject uploadFile(String from, String to) throws IOException {
         JSONObject loginInfo = parsePanHome(BaiduPanUtil.getPanHomeHtmlSource());
         List<String> blockList = parseBlockList((String) loginInfo.get("pluginUploadUrl"));
         String bdstoken = (String) loginInfo.get("bdstoken");
@@ -628,7 +554,7 @@ public class BaiduPanUtil {
         File file = new File(from);
 
         if (!file.exists()) {
-            throw new IllegalArgumentException("file ==> " + from+ "   文件不存在");
+            throw new IllegalArgumentException("file ==> " + from + "   文件不存在");
         }
         JSONObject upload = upload(file, to, xduss, uploadid);
         System.out.println(upload.toJSONString());
@@ -637,6 +563,107 @@ public class BaiduPanUtil {
         System.out.println(jsonObject.toJSONString());
         return jsonObject;
     }
+
+    /**
+     * get download link by <a href="http://pan.baidu.com/api/download?sign=XLhIytsgrSDLWRvXd0P1PC9olo3QPLTssBqMz7RoApsjao0ngUyQuQ%3D%3D&timestamp=1451061491&fidlist=%5B831325154488496%5D&type=dlink&bdstoken=8a9d073c0f618221d5650cf0e30cc4c8&channel=chunlei&clienttype=0&web=1&app_id=250528">http://pan.baidu.com/api/download<a/>
+     *
+     * @return
+     * @throws IOException
+     */
+    public static String getDlink(String fs_id) throws IOException {
+        ScriptEngineManager scriptEngineManager = new ScriptEngineManager();
+        ScriptEngine engine = scriptEngineManager.getEngineByName("nashorn");
+        JSONObject loginInfo = parsePanHome(getPanHomeHtmlSource());
+        String bdstoken = (String) loginInfo.get("bdstoken");
+        String sign1 = (String) loginInfo.get("sign1");
+        String sign2 = (String) loginInfo.get("sign2");
+        String sign3 = (String) loginInfo.get("sign3");
+        Integer timestamp = (Integer) loginInfo.get("timestamp");
+
+        String sign = null;
+        // sign2 is s(s,r)
+        // eval for Charsets and base64Encode
+        // sign2.replaceAll("/\"","'")+
+        // sign2 = function s(j,r){var a=[];var p=[];var o="";var v=j.length;for(var q=0;q<256;q++){a[q]=j.substr((q%v),1).charCodeAt(0);p[q]=q}for(var u=q=0;q<256;q++){u=(u+p[q]+a[q])%256;var t=p[q];p[q]=p[u];p[u]=t}for(var i=u=q=0;q<r.length;q++){i=(i+1)%256;u=(u+p[i])%256;var t=p[i];p[i]=p[u];p[u]=t;k=p[((p[i]+p[u])%256)];o+=String.fromCharCode(r.charCodeAt(q)^k)}return o};
+        try {
+            engine.eval(sign2.replaceAll("\"","'").replaceAll("/\"","'")+
+                    " function my_sign(sign1,sign3){" +
+                    "  return base64Encode(s(sign3,sign1));" +
+                    "}" +
+                    "function base64Encode(t) {\n" +
+                    "            var r, e, i, n, a, o, s = \"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/\";\n" +
+                    "            for (i = t.length,\n" +
+                    "            e = 0,\n" +
+                    "            r = \"\"; i > e; ) {\n" +
+                    "                if (n = 255 & t.charCodeAt(e++),\n" +
+                    "                e == i) {\n" +
+                    "                    r += s.charAt(n >> 2),\n" +
+                    "                    r += s.charAt((3 & n) << 4),\n" +
+                    "                    r += \"==\";\n" +
+                    "                    break\n" +
+                    "                }\n" +
+                    "                if (a = t.charCodeAt(e++),\n" +
+                    "                e == i) {\n" +
+                    "                    r += s.charAt(n >> 2),\n" +
+                    "                    r += s.charAt((3 & n) << 4 | (240 & a) >> 4),\n" +
+                    "                    r += s.charAt((15 & a) << 2),\n" +
+                    "                    r += \"=\";\n" +
+                    "                    break\n" +
+                    "                }\n" +
+                    "                o = t.charCodeAt(e++),\n" +
+                    "                r += s.charAt(n >> 2),\n" +
+                    "                r += s.charAt((3 & n) << 4 | (240 & a) >> 4),\n" +
+                    "                r += s.charAt((15 & a) << 2 | (192 & o) >> 6),\n" +
+                    "                r += s.charAt(63 & o)\n" +
+                    "            }\n" +
+                    "            return r\n" +
+                    "        }");
+            Invocable invocable = (Invocable) engine;
+            sign = (String) invocable.invokeFunction(
+                    "my_sign", sign1, sign3);
+
+        } catch (ScriptException e) {
+            e.printStackTrace();
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        }
+        if (sign == null) {
+            return null;
+        }
+        System.out.println(sign);
+        // %5B==>[    %5D==>]
+        HttpGet httpGet = new HttpGet("http://pan.baidu.com/api/download?sign=" + sign + "&timestamp="+timestamp+"&fidlist=%5B"+fs_id+"%5D&type=dlink&bdstoken="+bdstoken+"&channel=chunlei&clienttype=0&web=1&app_id=250528");
+
+        httpGet.setHeader("Accept", "application/json, text/javascript, */*; q=0.01");
+        httpGet.setHeader("Accept-Encoding", "gzip, deflate, sdch");
+        httpGet.setHeader("Accept-Language", "zh-CN,zh;q=0.8");
+        httpGet.setHeader("Connection", "keep-alive");
+        httpGet.setHeader("Host", "pan.baidu.com");
+        httpGet.setHeader("Referer", "http://pan.baidu.com/disk/home");
+        httpGet.setHeader("Cache-Control","max-age=0");
+        httpGet.setHeader("Upgrade-Insecure-Requests", "1");
+        httpGet.setHeader(User_Agent);
+        Header cookieHeader = cookie2Header();
+        httpGet.setHeader(cookieHeader);
+        String entity = clientExecute(httpGet);
+        JSONObject result = JSON.parseObject(entity);
+        //没有 dlink
+        if (!result.containsKey("dlink")) {
+            System.err.println(result);
+            return null;
+        }
+        JSONArray dlinkArray = result.getJSONArray("dlink");
+
+        Optional<JSONObject> objectOptional = dlinkArray.parallelStream()
+                .map(o -> JSON.parseObject(JSON.toJSONString(o)))
+                .filter(jsonObject -> fs_id.equals(jsonObject.get("fs_id")))
+                .findFirst();
+        if (objectOptional.isPresent()) {
+            return objectOptional.get().getString("dlink");
+        }
+        return null;
+    }
+
 
     /**
      * get cookie value by name if isPresent
@@ -671,6 +698,20 @@ public class BaiduPanUtil {
                 .reduce(String::concat);
         return stringOptional.isPresent() ? new BasicHeader("Cookie", stringOptional.get()) : null;
     }
+    /**
+     * pring cookie
+     */
+    private static void showCookies() {
+        List<Cookie> cookieList = cookieStore.getCookies();
+        if (cookieList == null || cookieList.size() < 1) {
+            return ;
+
+        }
+        cookieList
+                .stream().forEach(cookie -> {
+            System.out.println(cookie.getName()+"       "+cookie.getValue());
+        });
+    }
 
     /**
      * @return JSONObject
@@ -695,17 +736,20 @@ public class BaiduPanUtil {
      *
      * @param url
      */
-    public static List<String> parseBlockList(String url) {
+    public static List<String> parseBlockList(String url) throws IOException {
         HttpGet httpGet = new HttpGet(url);
-        CloseableHttpResponse httpResponse = null;
-        try {
-            httpResponse = httpClient.execute(httpGet);
-            String entity = EntityUtils.toString(httpResponse.getEntity());
-            String array = entity.replaceFirst("^[\\W|\\w]+o='\\[", "[").replaceFirst("]';[\\W|\\w]+", "]");
-            return JSON.parseArray(array, String.class);
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new UncheckedIOException(e);
-        }
+        String entity = clientExecute(httpGet);
+        String array = entity.replaceFirst("^[\\W|\\w]+o='\\[", "[").replaceFirst("]';[\\W|\\w]+", "]");
+        return JSON.parseArray(array, String.class);
+    }
+
+
+    /**
+     * @return entity string
+     */
+    private static String clientExecute(final HttpUriRequest request) throws IOException {
+        HttpResponse response = httpClient.execute(request);
+        HttpEntity entity = response.getEntity();
+        return EntityUtils.toString(entity, Charsets.UTF_8);
     }
 }
