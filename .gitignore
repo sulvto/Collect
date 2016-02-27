@@ -1,0 +1,5 @@
+*.iml
+HTTPClient/target/
+*.class
+.settings/
+*.idea
